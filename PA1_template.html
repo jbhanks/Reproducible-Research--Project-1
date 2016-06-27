@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+<title>Do the same calculations of sum, mean, and median using the dataframe containing the imputed values, and find the interval with the highest average number of steps</title>
+
+<script type="text/javascript">
+window.onload = function() {
+  var imgs = document.getElementsByTagName('img'), i, img;
+  for (i = 0; i < imgs.length; i++) {
+    img = imgs[i];
+    // center an image if it is the only element of its parent
+    if (img.parentElement.childElementCount === 1)
+      img.parentElement.style.textAlign = 'center';
+  }
+};
+</script>
+
+
+
+
+
+<style type="text/css">
+body, td {
+   font-family: sans-serif;
+   background-color: white;
+   font-size: 13px;
+}
+
+body {
+  max-width: 800px;
+  margin: auto;
+  padding: 1em;
+  line-height: 20px;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+
+h1 {
+   font-size:2.2em;
+}
+
+h2 {
+   font-size:1.8em;
+}
+
+h3 {
+   font-size:1.4em;
+}
+
+h4 {
+   font-size:1.0em;
+}
+
+h5 {
+   font-size:0.9em;
+}
+
+h6 {
+   font-size:0.8em;
+}
+
+a:visited {
+   color: rgb(50%, 0%, 50%);
+}
+
+pre, img {
+  max-width: 100%;
+}
+pre {
+  overflow-x: auto;
+}
+pre code {
+   display: block; padding: 0.5em;
+}
+
+code {
+  font-size: 92%;
+  border: 1px solid #ccc;
+}
+
+code[class] {
+  background-color: #F8F8F8;
+}
+
+table, td, th {
+  border: none;
+}
+
+blockquote {
+   color:#666666;
+   margin:0;
+   padding-left: 1em;
+   border-left: 0.5em #EEE solid;
+}
+
+hr {
+   height: 0px;
+   border-bottom: none;
+   border-top-width: thin;
+   border-top-style: dotted;
+   border-top-color: #999999;
+}
+
+@media print {
+   * {
+      background: transparent !important;
+      color: black !important;
+      filter:none !important;
+      -ms-filter: none !important;
+   }
+
+   body {
+      font-size:12pt;
+      max-width:100%;
+   }
+
+   a, a:visited {
+      text-decoration: underline;
+   }
+
+   hr {
+      visibility: hidden;
+      page-break-before: always;
+   }
+
+   pre, blockquote {
+      padding-right: 1em;
+      page-break-inside: avoid;
+   }
+
+   tr, img {
+      page-break-inside: avoid;
+   }
+
+   img {
+      max-width: 100% !important;
+   }
+
+   @page :left {
+      margin: 15mm 20mm 15mm 10mm;
+   }
+
+   @page :right {
+      margin: 15mm 10mm 15mm 20mm;
+   }
+
+   p, h2, h3 {
+      orphans: 3; widows: 3;
+   }
+
+   h2, h3 {
+      page-break-after: avoid;
+   }
+}
+</style>
+
+
+
+</head>
+
+<body>
+<p>###import and prepare the files
+Set the working directory and open the file</p>
+
+<pre><code class="r">setwd(&quot;C:/Users/homepc/Dropbox/Labshare/UJames/Coursera/data_science/reproducible_research/project1&quot;)
+activity &lt;- read.csv(&quot;activity.csv&quot;)
+</code></pre>
+
+<p>Convert dates to date format, and create a new column containing the days of the week</p>
+
+<pre><code class="r">activity$date &lt;- as.Date(activity$date)
+activity$weekdays &lt;- weekdays(as.Date(activity$date, &#39;%Y-%m-%d&#39;))
+</code></pre>
+
+<p>Remove NAs and check that there is sufficient sample size for each interval to do imputation</p>
+
+<pre><code class="r">noNA &lt;- subset(activity, steps != &quot;NA&quot;)
+noNA$comb &lt;- paste(noNA$weekdays, noNA$interval)
+count_table &lt;- table(noNA$comb)
+min(count_table)
+</code></pre>
+
+<pre><code>## [1] 7
+</code></pre>
+
+<pre><code class="r">max(count_table)
+</code></pre>
+
+<pre><code>## [1] 9
+</code></pre>
+
+<p>###impute missing values
+There are 7-9 data points for each weekday/interval combination, so I feel comfortable using the mean for each combination to impute the NA values in &quot;activity&quot;, and create a new data frame, &quot;imputed_df&quot;, containing the imputed missing values.</p>
+
+<pre><code class="r">imputed_means &lt;- aggregate(steps ~ weekdays + interval, data=activity, FUN=&quot;mean&quot;, na.rm=TRUE)
+allNAs &lt;- activity[is.na(activity$steps),]
+colnames(imputed_means)[colnames(imputed_means)==&quot;steps&quot;] &lt;- &quot;imputed.steps&quot;
+merged &lt;- merge(imputed_means, activity)
+imputed_df &lt;- merged
+imputed_df$cpsteps &lt;- imputed_df$steps
+imputed_df$cpsteps[is.na(imputed_df$cpsteps)] &lt;- as.numeric(imputed_df$imputed.steps[is.na(imputed_df$cpsteps)])
+</code></pre>
+
+<p>###Calculate daily sum, and mean and median number of steps per 5-minute interval, and find the interval with the highest average number of steps.</p>
+
+<p>Get the sums for each day, and make a histogram of them</p>
+
+<pre><code class="r">sums &lt;- aggregate(noNA$steps, by=list(noNA$date), &quot;sum&quot;)
+colnames(sums) &lt;- c(&quot;date&quot;,&quot;total.steps&quot;)
+hist(sums$total.steps, 
+     breaks=25, 
+     main=&quot;Total steps in a day&quot;, 
+     xlab=&quot;number of steps&quot;, 
+     ylab=&quot;number of days&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-5-1.png" alt="plot of chunk unnamed-chunk-5"></p>
+
+<p>Get the means for each day, and make a histogram</p>
+
+<pre><code class="r">means &lt;- aggregate(noNA$steps, by=list(noNA$date), &quot;mean&quot;)
+colnames(means) &lt;- c(&quot;date&quot;,&quot;mean.steps&quot;)
+hist(means$mean.steps, 
+     breaks=25, 
+     main=&quot;mean steps per interval in a day&quot;, 
+     xlab=&quot;mean number of steps per interval&quot;, 
+     ylab=&quot;number of days&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-6-1.png" alt="plot of chunk unnamed-chunk-6"></p>
+
+<p>Get the medians for each day, and make a histogram</p>
+
+<pre><code class="r">medians &lt;- aggregate(noNA$steps, by=list(noNA$date), &quot;median&quot;)
+colnames(medians) &lt;- c(&quot;date&quot;,&quot;median.steps&quot;)
+hist(medians$median.steps, 
+     breaks=25, 
+     main=&quot;median steps per interval in a day&quot;, 
+     xlab=&quot;median number of steps per interval&quot;, 
+     ylab=&quot;number of days&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-7-1.png" alt="plot of chunk unnamed-chunk-7"></p>
+
+<p>Because more than half of the intervals contain zero steps, it makes more sense to look at the median after excluding those intervals.</p>
+
+<pre><code class="r">noZero &lt;- subset(noNA, steps != 0)
+NZmedians &lt;- aggregate(noZero$steps, by=list(noZero$date), &quot;median&quot;)
+colnames(NZmedians) &lt;- c(&quot;date&quot;,&quot;median.steps&quot;)
+hist(NZmedians$median.steps, 
+     breaks=25, 
+     main=&quot;median steps excluding zeros&quot;, 
+     xlab=&quot;median number of steps per interval&quot;, 
+     ylab=&quot;number of days&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-8-1.png" alt="plot of chunk unnamed-chunk-8">
+Make a time series plot. This can be done in simple fashion because the data are already in order of time series</p>
+
+<pre><code class="r">plot.ts(noNA$steps)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-9-1.png" alt="plot of chunk unnamed-chunk-9"></p>
+
+<p>Get the interval with the most steps (averaged across days)</p>
+
+<pre><code class="r">intervals &lt;- aggregate(noNA$steps, by=list(noNA$interval), &quot;mean&quot;)
+colnames(intervals) &lt;- c(&quot;interval&quot;,&quot;mean.steps&quot;)
+top.interval &lt;- intervals[which(intervals$mean.steps == max(intervals$mean.steps)), ]
+print(top.interval)
+</code></pre>
+
+<pre><code>##     interval mean.steps
+## 104      835   206.1698
+</code></pre>
+
+<h3>Do the same calculations of sum, mean, and median using the dataframe containing the imputed values, and find the interval with the highest average number of steps</h3>
+
+<p>Sum:</p>
+
+<pre><code class="r">imp_sums &lt;- aggregate(imputed_df$cpsteps, by=list(imputed_df$date), &quot;sum&quot;)
+colnames(imp_sums) &lt;- c(&quot;date&quot;,&quot;total.steps&quot;)
+hist(imp_sums$total.steps, breaks=25)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-1.png" alt="plot of chunk unnamed-chunk-11">
+Mean:</p>
+
+<pre><code class="r">imp_means &lt;- aggregate(imputed_df$cpsteps, by=list(imputed_df$date), &quot;mean&quot;)
+colnames(imp_means) &lt;- c(&quot;date&quot;,&quot;mean.steps&quot;)
+</code></pre>
+
+<p>Medians:</p>
+
+<pre><code class="r">imp_medians &lt;- aggregate(imputed_df$cpsteps, by=list(imputed_df$date), &quot;median&quot;)
+colnames(imp_medians) &lt;- c(&quot;date&quot;,&quot;median.steps&quot;)
+hist(imp_medians$median.steps, 
+     breaks=25, 
+     main=&quot;median steps&quot;, 
+     xlab=&quot;median number of steps per interval&quot;, 
+     ylab=&quot;number of days&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-13-1.png" alt="plot of chunk unnamed-chunk-13"></p>
+
+<p>Medians excluding zeros:</p>
+
+<pre><code class="r">imp_noZero &lt;- subset(imputed_df, cpsteps != 0)
+imp_NZmedians &lt;- aggregate(imp_noZero$cpsteps, by=list(imp_noZero$date), &quot;median&quot;)
+colnames(imp_NZmedians) &lt;- c(&quot;date&quot;,&quot;median.steps&quot;)
+hist(imp_NZmedians$median.steps, 
+     breaks=25, 
+     main=&quot;median steps excluding zeros&quot;, 
+     xlab=&quot;median number of steps per interval&quot;, 
+     ylab=&quot;number of days&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-14-1.png" alt="plot of chunk unnamed-chunk-14">
+Make a time series plot. This can be done in simple fashion because the data are already in order of time series</p>
+
+<pre><code class="r">plot.ts(imputed_df$steps)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-15-1.png" alt="plot of chunk unnamed-chunk-15"></p>
+
+<p>Interval with the most steps:</p>
+
+<pre><code class="r">imp_intervals &lt;- aggregate(imputed_df$cpsteps, by=list(imputed_df$interval), &quot;mean&quot;)
+colnames(imp_intervals) &lt;- c(&quot;interval&quot;,&quot;mean.steps&quot;)
+imp_top.interval &lt;- imp_intervals[which(imp_intervals$mean.steps == max(imp_intervals$mean.steps)), ]
+print(imp_top.interval)
+</code></pre>
+
+<pre><code>##     interval mean.steps
+## 104      835   208.5056
+</code></pre>
+
+<p>Compare weekdays and weekends using the imputed data set</p>
+
+<pre><code class="r">weekdays &lt;- c(&quot;Monday&quot;, &quot;Tuesday&quot;, &quot;Wednesday&quot;, &quot;Thrusday&quot;, &quot;Friday&quot;)
+imputed_df$wdwe &lt;- as.factor(ifelse(is.element(weekdays(as.Date(imputed_df$date)), weekdays), &quot;Weekday&quot;, &quot;Weekend&quot;))
+aggregate(steps~wdwe, imputed_df, mean)
+</code></pre>
+
+<pre><code>##      wdwe    steps
+## 1 Weekday 37.09834
+## 2 Weekend 37.78314
+</code></pre>
+
+<p>It doesn&#39;t look like much, but do an ANOVA test to be sure:</p>
+
+<pre><code class="r">anova &lt;- aov(steps ~ wdwe, data=imputed_df)
+summary(anova)
+</code></pre>
+
+<pre><code>##                Df    Sum Sq Mean Sq F value Pr(&gt;F)
+## wdwe            1      1738    1738   0.139   0.71
+## Residuals   15262 191442062   12544               
+## 2304 observations deleted due to missingness
+</code></pre>
+
+<p>There is no difference between weekdays and weekends.</p>
+
+</body>
+
+</html>
